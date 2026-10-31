@@ -226,7 +226,7 @@ def setup_email(cfg, ask, message):
     save_config(cfg)
     return "Email settings saved. Add approved email contacts before messages appear."
 
-def draw(stdscr, cfg, messages, selected, status, started):
+def draw(stdscr, cfg, messages, selected, status):
     stdscr.erase()
     h, w = stdscr.getmaxyx()
     if h < 12 or w < 60:
