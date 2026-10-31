@@ -250,7 +250,7 @@ def draw(stdscr, cfg, messages, selected, status):
     put(0, 1, "TERMINALTEXT", attr|curses.A_BOLD)
     put(1, 1, "WHITELISTED MESSAGES", attr)
     put(2, 1, "─"*max(1, w-2), attr)
-    for y, line in enumerate(["1  add contact", "2  email contact", "3  text contact", "4  call contact", "5  email setup", "6  refresh now", "7  view contacts", "q  quit", "", "Type ... to quit"], 3):
+    for y, line in enumerate(["1  add contact", "2  email contact", "3  text contact", "4  call contact", "5  email setup", "6  refresh now", "7  view contacts", "8  sent history", "q  quit", "", "Type ... to quit"], 3):
         put(y, 2, line, attr)
     put(14, 2, f"Contacts: {len(cfg['contacts'])}", attr)
     e = cfg.get("email", {})
@@ -343,6 +343,20 @@ def run(stdscr):
                         stdscr.addnstr(i,0,line,stdscr.getmaxyx()[1]-1,curses.color_pair(1))
                 stdscr.refresh()
                 ask("Press Enter to return")
+        elif key==ord('8') or key in (ord('h'), ord('H')):
+            sent=[m for m in messages if m.get("direction")=="out" or m.get("kind") in ("EMAIL OUT","SMS OUT","CALL")]
+            stdscr.erase()
+            stdscr.addstr(0,0,"SENT HISTORY (newest first; press Enter to return)",curses.color_pair(1)|curses.A_BOLD)
+            if not sent:
+                stdscr.addstr(2,0,"No outgoing messages or calls recorded yet.",curses.color_pair(1))
+            else:
+                sent.sort(key=lambda m:m.get("time",0),reverse=True)
+                for i,item in enumerate(sent[:max(0,stdscr.getmaxyx()[0]-3)],1):
+                    stamp=datetime.fromtimestamp(item.get("time",time.time())).strftime("%Y-%m-%d %H:%M:%S")
+                    line=f"{stamp} | {item.get('kind','OUT')} | {item.get('name','')} | {item.get('to','address not recorded')}"
+                    stdscr.addnstr(i,0,line,stdscr.getmaxyx()[1]-1,curses.color_pair(1))
+            stdscr.refresh()
+            ask("Press Enter to return")
         elif key in (curses.KEY_UP, curses.KEY_DOWN):
             selected=max(0,selected+(1 if key==curses.KEY_DOWN else -1))
         elif key==ord('2') or key==ord('3') or key==ord('4'):
@@ -372,6 +386,8 @@ def run(stdscr):
                 try:
                     if not shutil.which("xdg-open"): raise RuntimeError("Install xdg-utils to open a call handler")
                     subprocess.Popen(["xdg-open","tel:"+c["phone"]],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                    messages.append({"id":"call:"+str(time.time_ns()),"kind":"CALL","direction":"out","from":"you","to":c["phone"],"name":c["name"],"subject":"","body":"Call handler opened","time":time.time(),"attachments":False})
+                    save_messages(messages)
                     status=f"Opened call handler for {c['name']}"
                 except Exception as ex: status=str(ex)
                 continue
@@ -385,10 +401,10 @@ def run(stdscr):
             try:
                 if key==ord('2'):
                     send_email(cfg,c,subject,body)
-                    messages.append({"id":"sent:"+str(time.time_ns()),"kind":"EMAIL OUT","from":cfg["email"]["address"],"name":c["name"],"subject":subject,"body":body[:MAX_EMAIL_TEXT],"time":time.time(),"attachments":False})
+                    messages.append({"id":"sent:"+str(time.time_ns()),"kind":"EMAIL OUT","direction":"out","from":cfg["email"]["address"],"to":c["email"],"name":c["name"],"subject":subject,"body":body[:MAX_EMAIL_TEXT],"time":time.time(),"attachments":False})
                 else:
                     send_sms(cfg,c,body)
-                    messages.append({"id":"sent:"+str(time.time_ns()),"kind":"SMS OUT","from":"you","name":c["name"],"subject":"","body":body[:MAX_SMS_TEXT],"time":time.time(),"attachments":False})
+                    messages.append({"id":"sent:"+str(time.time_ns()),"kind":"SMS OUT","direction":"out","from":"you","to":c["phone"],"name":c["name"],"subject":"","body":body[:MAX_SMS_TEXT],"time":time.time(),"attachments":False})
                 save_messages(messages); status=f"Sent to {c['name']}"
             except Exception as ex:
                 detail=str(ex).strip() or type(ex).__name__
