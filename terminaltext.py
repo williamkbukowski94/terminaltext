@@ -243,7 +243,7 @@ def draw(stdscr, cfg, messages, selected, status):
     put(0, 1, "TERMINALTEXT", attr|curses.A_BOLD)
     put(1, 1, "WHITELISTED MESSAGES", attr)
     put(2, 1, "─"*max(1, w-2), attr)
-    for y, line in enumerate(["1  add contact", "2  email contact", "3  text contact", "4  call contact", "5  email setup", "6  refresh now", "q  quit", "", "Type ... to quit"], 3):
+    for y, line in enumerate(["1  add contact", "2  email contact", "3  text contact", "4  call contact", "5  email setup", "6  refresh now", "7  view contacts", "q  quit", "", "Type ... to quit"], 3):
         put(y, 2, line, attr)
     put(14, 2, f"Contacts: {len(cfg['contacts'])}", attr)
     e = cfg.get("email", {})
@@ -324,6 +324,18 @@ def run(stdscr):
             status=add_contact(cfg,ask)
         elif key==ord('5'):
             status=setup_email(cfg,ask,status)
+        elif key==ord('7') or key in (ord('v'), ord('V')):
+            if not cfg["contacts"]:
+                status="No contacts yet. Press 1 to add and whitelist one."
+            else:
+                stdscr.erase()
+                stdscr.addstr(0,0,"WHITELISTED CONTACTS (press Enter to return)",curses.color_pair(1)|curses.A_BOLD)
+                for i,c in enumerate(cfg["contacts"],1):
+                    line=f"{i}. {c['name']} | email: {c.get('email') or '-'} | phone: {c.get('phone') or '-'}"
+                    if i < stdscr.getmaxyx()[0]-2:
+                        stdscr.addnstr(i,0,line,stdscr.getmaxyx()[1]-1,curses.color_pair(1))
+                stdscr.refresh()
+                ask("Press Enter to return")
         elif key in (curses.KEY_UP, curses.KEY_DOWN):
             selected=max(0,selected+(1 if key==curses.KEY_DOWN else -1))
         elif key==ord('2') or key==ord('3') or key==ord('4'):
@@ -335,11 +347,20 @@ def run(stdscr):
             for i,c in enumerate(options,1):
                 address=c.get(channel,"(none)")
                 stdscr.addstr(i-1,0,f"{i}. {c['name']}  {address}"[:max(1,stdscr.getmaxyx()[1]-1)],curses.color_pair(1))
-            choice=ask("Contact number (blank cancels)")
+            choice=ask("Contact number, name, email, or phone (Enter cancels)")
             if not choice: continue
-            if not choice.isdigit() or not (1<=int(choice)<=len(options)):
+            selected_contact=None
+            if choice.isdigit() and 1<=int(choice)<=len(options):
+                selected_contact=options[int(choice)-1]
+            else:
+                needle=choice.casefold()
+                selected_contact=next((item for item in options if needle in {
+                    item.get("name", "").casefold(), item.get("email", "").casefold(),
+                    item.get("phone", "").casefold()
+                }),None)
+            if selected_contact is None:
                 status="Invalid contact choice"; continue
-            c=options[int(choice)-1]
+            c=selected_contact
             if key==ord('4'):
                 try:
                     if not shutil.which("xdg-open"): raise RuntimeError("Install xdg-utils to open a call handler")
