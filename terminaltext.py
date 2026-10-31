@@ -190,9 +190,21 @@ def send_sms(cfg, c, body):
     exe = shutil.which("kdeconnect-cli")
     if not exe:
         raise RuntimeError("KDE Connect desktop is not installed")
+    device = cfg.get("kdeconnect_device", "").strip()
+    if not device:
+        try:
+            found = subprocess.run([exe, "--list-available", "--id-only"],
+                                    capture_output=True, text=True, timeout=8)
+        except Exception as ex:
+            raise RuntimeError(f"Could not find a paired KDE Connect phone: {ex}") from ex
+        devices = [line.strip() for line in found.stdout.splitlines() if line.strip()]
+        if not devices:
+            raise RuntimeError("No paired, reachable KDE Connect phone found. Pair your Android phone, then retry.")
+        device = devices[0]
+        cfg["kdeconnect_device"] = device
+        save_config(cfg)
     cmd = [exe]
-    if cfg.get("kdeconnect_device"):
-        cmd += ["--device", cfg["kdeconnect_device"]]
+    cmd += ["--device", device]
     cmd += ["--send-sms", body[:MAX_SMS_TEXT], "--destination", c["phone"]]
     p = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
     if p.returncode:
