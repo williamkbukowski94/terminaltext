@@ -176,7 +176,14 @@ def send_email(cfg, c, subject, body):
     msg["Subject"] = subject[:120]
     msg.set_content(body[:MAX_EMAIL_TEXT])
     with smtplib.SMTP_SSL(e["smtp_host"], int(e.get("smtp_port", 465)), timeout=12) as server:
-        server.login(e["address"], e["password"])
+        try:
+            server.login(e["address"], e["password"])
+        except smtplib.SMTPAuthenticationError as ex:
+            raise RuntimeError(
+                "SMTP rejected the email login (535). Press 5 to reconfigure; "
+                "check the email address, SMTP host/port, and provider-required app password. "
+                "The message was not sent."
+            ) from ex
         server.send_message(msg)
 
 def send_sms(cfg, c, body):
