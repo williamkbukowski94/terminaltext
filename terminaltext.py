@@ -327,6 +327,10 @@ def run(stdscr):
         try: raw=stdscr.getstr(y, min(w-2,len(prompt)), max(1,w-min(w-4,len(prompt))-1))
         finally:
             curses.noecho(); curses.curs_set(0); stdscr.timeout(250)
+            # Drop terminal scrollback from transient forms/pages before the menu redraws.
+            sys.stdout.write("\033[3J\033[2J\033[H")
+            sys.stdout.flush()
+            stdscr.clearok(True)
         return raw.decode("utf-8",errors="replace").strip()
     while True:
         now=time.monotonic()
