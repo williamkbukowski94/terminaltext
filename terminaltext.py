@@ -314,9 +314,9 @@ def run(stdscr):
         if now-last_poll>=POLL_SECONDS:
             poll_email(cfg,messages); poll_sms_notifications(cfg,messages); last_poll=now
         draw(stdscr,cfg,messages,selected,status)
-        status=""
         key=stdscr.getch()
         if key==-1: continue
+        status=""
         if key in (ord('q'), 27): break
         if key==ord('r') or key==ord('6'):
             poll_email(cfg,messages); poll_sms_notifications(cfg,messages); last_poll=time.monotonic(); status="Refreshed"
@@ -383,7 +383,10 @@ def run(stdscr):
                     send_sms(cfg,c,body)
                     messages.append({"id":"sent:"+str(time.time_ns()),"kind":"SMS OUT","from":"you","name":c["name"],"subject":"","body":body[:MAX_SMS_TEXT],"time":time.time(),"attachments":False})
                 save_messages(messages); status=f"Sent to {c['name']}"
-            except Exception as ex: status=f"Send failed: {str(ex)[:150]}"
+            except Exception as ex:
+                detail=str(ex).strip() or type(ex).__name__
+                status=f"Send failed: {detail[:180]}"
+                ask(f"SEND FAILED: {detail[:max(10,stdscr.getmaxyx()[1]-24)]}  |  Press Enter")
         elif key==ord('.'):
             nxt=stdscr.getch()
             if nxt==ord('.') and stdscr.getch()==ord('.'): break
