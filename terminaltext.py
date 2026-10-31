@@ -301,11 +301,13 @@ def run(stdscr):
     def ask(prompt, secret=False):
         curses.curs_set(1)
         h,w=stdscr.getmaxyx(); y=h-2
+        # The dashboard polls with a short timeout; prompts must block until Enter.
+        stdscr.timeout(-1)
         stdscr.move(y,0); stdscr.clrtoeol(); stdscr.addstr(y,0,prompt[:w-2],curses.color_pair(1)); stdscr.refresh()
         curses.echo(not secret)
         try: raw=stdscr.getstr(y, min(w-2,len(prompt)), max(1,w-min(w-4,len(prompt))-1))
         finally:
-            curses.noecho(); curses.curs_set(0)
+            curses.noecho(); curses.curs_set(0); stdscr.timeout(250)
         return raw.decode("utf-8",errors="replace").strip()
     while True:
         now=time.monotonic()
